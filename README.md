@@ -1,7 +1,19 @@
 # JTS Relay
 
-Independent, self-hostable rendezvous and encrypted byte relay for JTS Terminal
-2.5. This repository is separate from the Mac and Windows endpoint applications.
+**一个 JTS 终端，让 AI 像操作本机一样操作远程设备；Relay 负责跨网络的加密连接。**
+
+JTS brings remote machines into one terminal workspace for AI-assisted work.
+Through [JTS Terminal](https://github.com/leixyou/JTS-Terminal-2.0), AI clients
+invoke commands, file operations and semantic Windows UI Automation on paired
+devices and receive structured results. The
+[Windows Companion](https://github.com/leixyou/JTS-Windows-Companion) provides
+the Windows capabilities; JTS Relay connects the endpoints when a direct network
+path is unavailable.
+
+This repository contains the independent, self-hostable rendezvous and encrypted
+byte relay for that workflow. Remote operations execute at the endpoints, with
+their own device identity and permissions. Control, file and RDP streams pass
+through the relay as encrypted bytes.
 
 **Status: 1.0.0-alpha.1 development preview, not a production/release approval.**
 Control, file and RDP are separate relay lanes. The relay does not execute
