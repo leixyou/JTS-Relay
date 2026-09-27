@@ -17,6 +17,7 @@ public sealed class AdmissionPriorityTests
         using var companion = new TestIdentity();
         var options = new RelayOptions
         {
+            PublicOrigin = TestIdentity.Origin,
             MaxSessions = globalLimit, MaxSessionsPerDevice = deviceLimit,
             Devices = [controller.Options("controller", companion.Id), companion.Options("companion", controller.Id)]
         };
@@ -39,6 +40,7 @@ public sealed class AdmissionPriorityTests
         using var companion = new TestIdentity();
         var options = new RelayOptions
         {
+            PublicOrigin = TestIdentity.Origin,
             MaxSessions = 4, MaxSessionsPerDevice = 4,
             Devices = [controller.Options("controller", companion.Id), companion.Options("companion", controller.Id)]
         };

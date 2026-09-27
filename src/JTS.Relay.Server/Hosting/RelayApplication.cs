@@ -35,6 +35,7 @@ public static class RelayApplication
         builder.Services.AddSingleton<AdmissionStore>();
         builder.Services.AddSingleton<DeviceRegistry>();
         builder.Services.AddSingleton<EnrollmentService>();
+        builder.Services.AddSingleton<RevocationService>();
         builder.Services.AddSingleton<EnrollmentRateLimiter>();
         builder.Services.AddSingleton<ChallengeAuthenticator>();
         builder.Services.AddSingleton<RelayStore>();

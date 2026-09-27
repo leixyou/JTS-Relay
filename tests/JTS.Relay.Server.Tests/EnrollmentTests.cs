@@ -22,14 +22,14 @@ public sealed class EnrollmentTests
         Assert.Throws<RelayFailure>(() => f.Execute(new { action = "confirm", invitationId = claim.InvitationId, claimHash = new string('0', 64) }));
         Assert.Throws<RelayFailure>(() => f.Execute(new { action = "confirm", invitationId = claim.InvitationId, claimHash = claim.Claim!.ClaimHash }, f.OtherController));
         Assert.False(f.Registry.TryGet(f.Companion.Id, out _));
-        var confirmed = (EnrollmentView)f.Execute(new { action = "confirm", invitationId = claim.InvitationId, claimHash = claim.Claim!.ClaimHash });
+        var confirmed = (EnrollmentView)f.Execute(f.ConfirmationRequest(claim));
         Assert.Equal("bound", confirmed.State); Assert.True(f.Registry.AuthorizesPair(f.Controller.Id, f.Companion.Id));
         Assert.Equal(confirmed, f.Public(body, true));
         var input = EnrollmentFixture.Json(body);
         var transcript = string.Join('\n', "JTS-PAIR-1", claim.InvitationId, f.Controller.Id,
             Convert.ToHexStringLower(SHA256.HashData(Convert.FromBase64String(claim.OfferBase64))),
             Convert.ToHexStringLower(SHA256.HashData(Convert.FromBase64String(input.GetProperty("responseBase64").GetString()!))), f.Companion.Id);
-        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(transcript))), claim.Claim.ClaimHash);
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(transcript))), claim.Claim!.ClaimHash);
     }
     [Fact]
     public async Task CompetingClaimsAndRepeatedConfirmAreAtomic()
@@ -41,8 +41,9 @@ public sealed class EnrollmentTests
             try { return f.Public(body, true); } catch (RelayFailure failure) { Assert.Equal(409, failure.Status); return null; }
         })));
         var accepted = Assert.Single(results, value => value is not null)!;
+        var confirmationRequest = f.ConfirmationRequest(accepted);
         var confirmed = await Task.WhenAll(Enumerable.Range(0, 12).Select(_ => Task.Run(() => (EnrollmentView)f.Execute(
-            new { action = "confirm", invitationId = accepted.InvitationId, claimHash = accepted.Claim!.ClaimHash }))));
+            confirmationRequest))));
         Assert.All(confirmed, value => Assert.Equal("bound", value.State));
         Assert.Single(f.Registry.Get(f.Controller.Id).Peers);
         Assert.Equal(accepted.Claim, f.Public(new { invitationId = invitation.View.InvitationId, claimTokenBase64 = invitation.Token }).Claim);
@@ -55,7 +56,7 @@ public sealed class EnrollmentTests
         f.Clock.Now = f.Clock.Now.AddDays(2); f.Reopen();
         var receipt = new { invitationId = bound.InvitationId, claimTokenBase64 = invitation.Token };
         Assert.Equal(bound, f.Public(receipt));
-        Assert.Equal(bound, f.Execute(new { action = "confirm", invitationId = bound.InvitationId, claimHash = bound.Claim!.ClaimHash }));
+        Assert.Equal(bound, f.Execute(f.ConfirmationRequest(bound)));
         Assert.Equal(bound, f.Execute(invitation.Request));
         Assert.Throws<RelayFailure>(() => f.Execute(new { action = "cancel", invitationId = bound.InvitationId }));
         f.Execute(new { action = "revoke", peerDeviceId = f.Companion.Id });
@@ -119,8 +120,9 @@ public sealed class EnrollmentTests
         var options = f.Options; options.MaxRequestsPerMinute = 2; options.MaxPublicEnrollmentRequestsPerMinute = 3;
         var limiter = new EnrollmentRateLimiter(options, f.Clock);
         limiter.Check("one"); limiter.Check("one");
-        Assert.Equal(429, Assert.Throws<RelayFailure>(() => limiter.Check("one")).Status);
-        Assert.Equal(429, Assert.Throws<RelayFailure>(() => limiter.Check("two")).Status);
+        for (var i = 0; i < 500; i++) Assert.Equal(429, Assert.Throws<RelayFailure>(() => limiter.Check("one")).Status);
+        limiter.Check("two");
+        Assert.Equal(429, Assert.Throws<RelayFailure>(() => limiter.Check("three")).Status);
         f.Clock.Now = f.Clock.Now.AddMinutes(1); limiter.Check("one");
     }
     [Theory]

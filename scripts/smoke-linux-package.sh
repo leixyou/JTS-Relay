@@ -33,6 +33,7 @@ jq --arg root "$relay_work" --arg controller "$relay_controller_id" --arg compan
   '.Kestrel.Endpoints.Https.Url="https://127.0.0.1:18443" |
    .Kestrel.Endpoints.Https.Certificate={Path:($root+"/tls.crt"),KeyPath:($root+"/tls.key")} |
    .Relay.DatabasePath=($root+"/state/relay.sqlite") |
+   .Relay.PublicOrigin="https://localhost:18443" |
    .Relay.Devices=[{DeviceId:$controller,PublicKeySpkiBase64:$controllerSpki,Role:"controller",Peers:[$companion]},
                    {DeviceId:$companion,PublicKeySpkiBase64:$companionSpki,Role:"companion",Peers:[$controller]}]' \
   "$relay_release/deploy/relay.example.json" > "$relay_work/relay.json"

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using JTS.Relay.Server.Enrollment;
 using JTS.Relay.Server.Protocol;
 using JTS.Relay.Server.Security;
@@ -38,10 +39,11 @@ public sealed partial class AdmissionStore
             var result = Read(transaction, request.InvitationId!)!.View; transaction.Commit(); return result;
         }
     }
-    public EnrollmentView Owned(string controller, string id, string action, string? hash = null)
+    public EnrollmentView Owned(string controller, string id, string action, string? hash = null, EnrollmentConfirmation? confirmation = null)
     {
         lock (SyncRoot)
         {
+            if (!TryGet(controller, out var identity)) throw new RelayFailure("authentication_failed", 401);
             using var transaction = connection.BeginTransaction(); Expire(transaction);
             var item = Read(transaction, id);
             if (item is null || item.View.ControllerDeviceId != controller) throw new RelayFailure("invitation_not_found", 404);
@@ -50,10 +52,15 @@ public sealed partial class AdmissionStore
             {
                 if (view.Claim is null || view.Claim.ClaimHash != hash || view.State is not ("claimed" or "bound"))
                     throw new RelayFailure("invitation_not_confirmable", 409);
+                if (confirmation is null) throw new RelayFailure("invalid_signed_confirmation", 401);
+                confirmation.Verify(view, identity, options.PublicOrigin, Now);
+                if (view.State == "bound" && view.Confirmation != confirmation) throw new RelayFailure("confirmation_conflict", 409);
                 if (view.State == "claimed")
                 {
                     var verified = EnrollmentProtocol.VerifyClaim(view, view.Claim);
                     AddPair(transaction, controller, verified.Peer);
+                    Execute(transaction, "INSERT INTO admission_confirmations VALUES($id,$document)",
+                        ("$id", id), ("$document", JsonSerializer.Serialize(confirmation)));
                     Execute(transaction, "UPDATE admission_invitations SET state='bound',updated=$now WHERE id=$id", ("$now", Now), ("$id", id));
                 }
             }
@@ -118,6 +125,9 @@ public sealed partial class AdmissionStore
         using var command = Command(transaction, "SELECT controller,token_hash,state,expires,offer,peer_spki,response,signature,claim_hash FROM admission_invitations WHERE id=$id", ("$id", id));
         using var reader = command.ExecuteReader(); if (!reader.Read()) return null;
         var claim = reader.IsDBNull(5) ? null : new EnrollmentClaim(reader.GetString(5), reader.GetString(6), reader.GetString(7), reader.GetString(8));
-        return new(reader.GetString(1), new(id, reader.GetString(0), reader.GetString(2), reader.GetInt64(3), reader.GetString(4), claim));
+        var result = new StoredInvitation(reader.GetString(1), new(id, reader.GetString(0), reader.GetString(2), reader.GetInt64(3), reader.GetString(4), claim));
+        reader.Close();
+        var confirmation = Scalar(transaction, "SELECT document FROM admission_confirmations WHERE invitation=$id", ("$id", id)) as string;
+        return result with { View = result.View with { Confirmation = confirmation is null ? null : JsonSerializer.Deserialize<EnrollmentConfirmation>(confirmation) } };
     }
 }

@@ -1,4 +1,6 @@
 using System.Net.Http.Json;
+using System.Net;
+using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Text.Json;
 using JTS.Relay.Server.Configuration;
@@ -16,18 +18,25 @@ internal sealed class RelayFixture : IAsyncDisposable
     public TestIdentity Controller { get; } = new();
     public TestIdentity Companion { get; } = new();
     public HttpClient Http { get; private set; } = null!;
+    public string Origin { get; private set; } = "";
     public async Task StartAsync(Action<RelayOptions>? configure = null)
     {
+        using var reservation = new TcpListener(IPAddress.Loopback, 0);
+        reservation.Start();
+        Origin = "http://127.0.0.1:" + ((IPEndPoint)reservation.LocalEndpoint).Port;
+        reservation.Stop();
         var options = new RelayOptions
         {
+            PublicOrigin = Origin,
             DatabasePath = Path.Combine(directory, "relay.sqlite"), AllowLoopbackHttp = true,
             Devices = [Controller.Options("controller", Companion.Id), Companion.Options("companion", Controller.Id)]
         };
         configure?.Invoke(options);
+        if (!options.AllowLoopbackHttp) options.PublicOrigin = TestIdentity.Origin;
         app = RelayApplication.Build([], builder =>
         {
             builder.Configuration.AddJsonStream(new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new { Relay = options })));
-            builder.WebHost.UseSetting("urls", "http://127.0.0.1:0");
+            builder.WebHost.UseSetting("urls", Origin);
         });
         await app.StartAsync();
         Http = new() { BaseAddress = new Uri(app.Urls.Single()), Timeout = TimeSpan.FromSeconds(10) };
@@ -37,7 +46,7 @@ internal sealed class RelayFixture : IAsyncDisposable
         var challengeResponse = await Http.PostAsJsonAsync("/v1/challenges", new ChallengeRequest(device.Id, operation));
         challengeResponse.EnsureSuccessStatusCode();
         var challenge = (await challengeResponse.Content.ReadFromJsonAsync<ChallengeResponse>())!;
-        return await Http.PostAsJsonAsync("/v1/" + operation, device.Sign(operation, challenge, payload));
+        return await Http.PostAsJsonAsync("/v1/" + operation, device.Sign(operation, challenge, payload, Origin));
     }
     public async Task<(SessionResponse Created, SessionOffer Offer)> SessionAsync(string lane)
     {

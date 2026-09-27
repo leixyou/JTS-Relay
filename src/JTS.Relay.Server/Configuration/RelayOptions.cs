@@ -3,6 +3,7 @@ namespace JTS.Relay.Server.Configuration;
 public sealed class RelayOptions
 {
     public string DatabasePath { get; set; } = "";
+    public string PublicOrigin { get; set; } = "";
     public bool AllowLoopbackHttp { get; set; }
     public int MaxDevices { get; set; } = 64;
     public int MaxCompanionDevices { get; set; } = 10;
@@ -29,6 +30,7 @@ public sealed class RelayOptions
 
     public void Validate()
     {
+        PublicOrigin = RelayOrigin.Canonicalize(PublicOrigin, AllowLoopbackHttp);
         if (!Path.IsPathFullyQualified(DatabasePath) ||
             MaxDevices is < 2 or > 10000 || MaxCompanionDevices < 1 ||
             MaxCompanionDevices > MaxDevices || Devices.Count > MaxDevices ||

@@ -10,9 +10,11 @@ namespace JTS.Relay.Server.Enrollment;
 public sealed record EnrollmentClaim(string PeerSPKIBase64, string ResponseBase64, string SignatureBase64, string ClaimHash);
 public sealed record EnrollmentView(string InvitationId, string ControllerDeviceId, string State,
     long ExpiresAtUnixSeconds, string OfferBase64,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EnrollmentClaim? Claim);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EnrollmentClaim? Claim,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] EnrollmentConfirmation? Confirmation = null);
 public sealed record EnrollmentRequest(string Action, string? InvitationId = null, string? ClaimTokenHash = null,
-    string? OfferBase64 = null, long ExpiresAtUnixSeconds = 0, string? ClaimHash = null, string? PeerDeviceId = null);
+    string? OfferBase64 = null, long ExpiresAtUnixSeconds = 0, string? ClaimHash = null, string? PeerDeviceId = null,
+    EnrollmentConfirmation? Confirmation = null);
 public sealed record PublicEnrollmentRequest(string InvitationId, string ClaimTokenBase64, EnrollmentClaim? Claim);
 
 public static class EnrollmentProtocol
@@ -31,7 +33,8 @@ public static class EnrollmentProtocol
             case "status": case "cancel":
                 Fields(root, "action", "invitationId"); return new(action, Id(root));
             case "confirm":
-                Fields(root, "action", "invitationId", "claimHash"); return new(action, Id(root), ClaimHash: Hash(root, "claimHash"));
+                Fields(root, "action", "invitationId", "claimHash", "confirmation");
+                return new(action, Id(root), ClaimHash: Hash(root, "claimHash"), Confirmation: EnrollmentConfirmation.Parse(root.GetProperty("confirmation")));
             case "revoke":
                 Fields(root, "action", "peerDeviceId"); return new(action, PeerDeviceId: Hash(root, "peerDeviceId"));
             default: throw Invalid();
@@ -62,19 +65,19 @@ public static class EnrollmentProtocol
         string.Join('\n', "JTS-PAIR-1", invitation, controller, Digest(Convert.FromBase64String(offer)),
             Digest(Convert.FromBase64String(response)), Digest(Convert.FromBase64String(spki)));
     public static string Digest(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
-    private static string Id(JsonElement root)
+    internal static string Id(JsonElement root, string name = "invitationId")
     {
-        var value = Text(root, "invitationId");
+        var value = Text(root, name);
         if (!Guid.TryParseExact(value, "D", out var id) || id == Guid.Empty || id.ToString("D") != value) throw Invalid();
         return value;
     }
-    private static string Hash(JsonElement root, string name)
+    internal static string Hash(JsonElement root, string name)
     {
         var value = Text(root, name);
         if (value.Length != 64 || value.Any(c => c is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))) throw Invalid();
         return value;
     }
-    private static string Base64(JsonElement root, string name, int min, int max)
+    internal static string Base64(JsonElement root, string name, int min, int max)
     {
         var value = Text(root, name);
         if (value.Length > ((max + 2) / 3) * 4) throw Invalid();
@@ -86,9 +89,9 @@ public static class EnrollmentProtocol
         }
         catch (FormatException) { throw Invalid(); }
     }
-    private static string Text(JsonElement root, string name) => root.ValueKind == JsonValueKind.Object &&
+    internal static string Text(JsonElement root, string name) => root.ValueKind == JsonValueKind.Object &&
         root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString()! : throw Invalid();
-    private static void Fields(JsonElement root, params string[] expected)
+    internal static void Fields(JsonElement root, params string[] expected)
     {
         if (root.ValueKind != JsonValueKind.Object) throw Invalid();
         var seen = new HashSet<string>(StringComparer.Ordinal);

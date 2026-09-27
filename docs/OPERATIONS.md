@@ -113,12 +113,15 @@ in effect. The provider limit remains necessary even with a consistent database.
 ## Revoke and uninstall
 
 Use [dynamic one-use enrollment](DYNAMIC_ENROLLMENT.md) to add peers without a
-restart. The signed enrollment revoke action removes the caller's peer edge,
+restart. The V2 signed revocation mailbox removes the caller's peer edge,
 cancels associated invitations and closes its active node sessions immediately.
+It reports pending until Windows signs completion for the exact pairing/grant
+epoch. An offline endpoint retains a pending request until it reconnects; a
+compromised node can suppress delivery but cannot forge endpoint completion.
 The legacy [JSON admission tool](DEVICE_ADMISSION.md) prepares only initial seed
 configuration; after migration, config edits cannot change the durable registry.
-Endpoint grants require their own revocation; an offline endpoint may retain an
-explicitly accepted task until its deadline.
+The legacy enrollment `revoke` action is node-only; it does not stop endpoint
+grants or prove that previously accepted offline work has stopped.
 
 To uninstall, first stop/disable the unit or run `docker compose down` WITHOUT
 `--volumes`. Preserve data/config by default. Remove only the exact installed

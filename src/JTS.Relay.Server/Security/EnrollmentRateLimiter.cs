@@ -16,8 +16,9 @@ public sealed class EnrollmentRateLimiter(RelayOptions options, TimeProvider clo
             var now = clock.GetUtcNow().ToUnixTimeSeconds() / 60;
             if (now != minute) { minute = now; count = 0; clients.Clear(); }
             var previous = clients.GetValueOrDefault(address);
-            if (++count > options.MaxPublicEnrollmentRequestsPerMinute || previous >= options.MaxRequestsPerMinute ||
+            if (count >= options.MaxPublicEnrollmentRequestsPerMinute || previous >= options.MaxRequestsPerMinute ||
                 previous == 0 && clients.Count >= 1024) throw new RelayFailure("rate_limited", 429);
+            count++;
             clients[address] = previous + 1;
         }
     }

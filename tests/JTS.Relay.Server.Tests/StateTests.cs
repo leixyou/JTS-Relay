@@ -16,7 +16,7 @@ public sealed class StateTests
         try
         {
             var clock = new TestClock();
-            var options = new RelayOptions { DatabasePath = Path.Combine(directory, "relay.sqlite"), MonthlyOutboundBytes = 100, ControlReserveBytes = 20, UsageRetentionDays = 1 };
+            var options = new RelayOptions { PublicOrigin = TestIdentity.Origin, DatabasePath = Path.Combine(directory, "relay.sqlite"), MonthlyOutboundBytes = 100, ControlReserveBytes = 20, UsageRetentionDays = 1 };
             using (var store = new RelayStore(options, clock))
             {
                 Assert.True(store.TryReserveOutbound(80, "file"));
@@ -39,7 +39,7 @@ public sealed class StateTests
     {
         using var controller = new TestIdentity();
         using var companion = new TestIdentity();
-        var options = new RelayOptions { Devices = [controller.Options("controller", companion.Id), companion.Options("companion", controller.Id)] };
+        var options = new RelayOptions { PublicOrigin = TestIdentity.Origin, Devices = [controller.Options("controller", companion.Id), companion.Options("companion", controller.Id)] };
         var registry = new DeviceRegistry(options);
         var clock = new TestClock();
         using var sessions = new SessionCoordinator(options, registry, clock);
@@ -62,7 +62,7 @@ public sealed class StateTests
         using var controller = new TestIdentity();
         using var companion = new TestIdentity();
         using var outsider = new TestIdentity();
-        var options = new RelayOptions { Devices = [controller.Options("controller", companion.Id), companion.Options("companion", controller.Id), outsider.Options("companion")] };
+        var options = new RelayOptions { PublicOrigin = TestIdentity.Origin, Devices = [controller.Options("controller", companion.Id), companion.Options("companion", controller.Id), outsider.Options("companion")] };
         var registry = new DeviceRegistry(options);
         using var sessions = new SessionCoordinator(options, registry, new TestClock());
         Assert.Equal(403, Assert.Throws<RelayFailure>(() => sessions.Create(registry.Get(controller.Id), new(outsider.Id, "rdp"))).Status);

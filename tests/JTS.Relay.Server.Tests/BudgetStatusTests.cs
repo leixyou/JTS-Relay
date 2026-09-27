@@ -12,7 +12,7 @@ public sealed class BudgetStatusTests
         var directory = Directory.CreateTempSubdirectory("jts-relay-budget-test-").FullName;
         try
         {
-            var options = new RelayOptions { DatabasePath = Path.Combine(directory, "relay.sqlite"), MonthlyOutboundBytes = 100, ControlReserveBytes = 10 };
+            var options = new RelayOptions { PublicOrigin = TestIdentity.Origin, DatabasePath = Path.Combine(directory, "relay.sqlite"), MonthlyOutboundBytes = 100, ControlReserveBytes = 10 };
             var clock = new TestClock();
             var warnings = new List<string>();
             using (var store = new RelayStore(options, clock, warnings.Add))
@@ -58,7 +58,7 @@ public sealed class BudgetStatusTests
         var directory = Directory.CreateTempSubdirectory("jts-relay-status-test-").FullName;
         try
         {
-            var options = new RelayOptions { DatabasePath = Path.Combine(directory, "missing.sqlite") };
+            var options = new RelayOptions { PublicOrigin = TestIdentity.Origin, DatabasePath = Path.Combine(directory, "missing.sqlite") };
             Assert.Throws<Microsoft.Data.Sqlite.SqliteException>(() => BudgetStatusReader.Read(options, new TestClock()));
             Assert.False(File.Exists(options.DatabasePath));
         }

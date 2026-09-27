@@ -9,6 +9,7 @@
   },
   "Relay": {
     "DatabasePath": "/var/lib/jts-relay/relay.sqlite",
+    "PublicOrigin": "https://relay.example.com:8443",
     "AllowLoopbackHttp": false,
     "MaxDevices": 64,
     "MaxCompanionDevices": 10,

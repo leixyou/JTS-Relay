@@ -41,9 +41,9 @@ class Identity:
     def admission(self, role, peer):
         return dict(deviceId=self.id, publicKeySpkiBase64=base64.b64encode(self.spki).decode(), role=role, peers=[peer.id])
 
-    def envelope(self, operation, challenge, payload):
+    def envelope(self, operation, challenge, payload, origin):
         data = json.dumps(payload, separators=(",", ":")).encode()
-        canonical = "\n".join(("JTS-RELAY-AUTH-V1", self.id, operation, challenge["challengeId"],
+        canonical = "\n".join(("JTS-RELAY-AUTH-V2", origin, self.id, operation, challenge["challengeId"],
                                challenge["nonceBase64"], hashlib.sha256(data).hexdigest())).encode()
         r, s = utils.decode_dss_signature(self.key.sign(canonical, ec.ECDSA(hashes.SHA256())))
         signature = r.to_bytes(32, "big") + s.to_bytes(32, "big")
@@ -61,7 +61,8 @@ class Probe:
         uri = urllib.parse.urlsplit(origin)
         require(uri.scheme == "https" and uri.hostname and uri.path in ("", "/") and not uri.query
                 and not uri.fragment and not uri.username and not uri.password)
-        self.origin = origin.rstrip("/")
+        authority = ("[" + uri.hostname + "]") if ":" in uri.hostname else uri.hostname
+        self.origin = "https://" + authority.lower() + (":" + str(uri.port) if uri.port and uri.port != 443 else "")
         self.host, self.port = uri.hostname, uri.port or 443
         self.socket_url = "wss://" + uri.netloc + "/v1/channel"
         pem = Path(certificate).read_bytes()
@@ -82,7 +83,7 @@ class Probe:
 
     def authorized(self, identity, operation, payload):
         challenge = self.request("/v1/challenges", dict(deviceId=identity.id, operation=operation))
-        return self.request("/v1/" + operation, identity.envelope(operation, challenge, payload))
+        return self.request("/v1/" + operation, identity.envelope(operation, challenge, payload, self.origin))
 
     def socket(self, ticket):
         return connect(self.socket_url, ssl=self.tls, additional_headers={"Authorization": "Bearer " + ticket},

@@ -41,18 +41,18 @@ public static class RelayEndpoints
         app.MapGet("/healthz", () => Results.Json(new { status = "ok" }));
         app.MapGet("/v1/info", () => Results.Json(new { protocolVersion = 1, lanes = new[] { "control", "file", "rdp" } }));
         app.MapPost("/v1/challenges", async (HttpContext context, ChallengeAuthenticator auth) =>
-            Results.Json(auth.Issue(await Read<ChallengeRequest>(context))));
-        foreach (var operation in new[] { "presence", "devices", "sessions", "poll", "enrollment" })
+            Results.Json(auth.Issue(await Read<ChallengeRequest>(context), context.Connection.RemoteIpAddress?.ToString() ?? "unknown")));
+        foreach (var operation in new[] { "presence", "devices", "sessions", "poll", "enrollment", "revocations" })
             app.MapPost("/v1/" + operation, async (HttpContext context, ChallengeAuthenticator auth,
-                SessionCoordinator sessions, RelayStore store, EnrollmentService enrollment) =>
+                SessionCoordinator sessions, RelayStore store, EnrollmentService enrollment, RevocationService revocations) =>
             {
-                var (device, document) = auth.Authenticate(operation, await Read<AuthEnvelope>(context));
+                var (device, document) = auth.Authenticate(operation, await Read<AuthEnvelope>(context), context.Connection.RemoteIpAddress?.ToString() ?? "unknown");
                 using (document)
                 {
-                    if (operation == "enrollment")
+                    if (operation is "enrollment" or "revocations")
                     {
                         context.Response.Headers.CacheControl = "no-store";
-                        return Results.Json(enrollment.Execute(device.Id, document.RootElement));
+                        return Results.Json(operation == "enrollment" ? enrollment.Execute(device.Id, document.RootElement) : revocations.Execute(device.Id, document.RootElement));
                     }
                     if (operation != "sessions" && document.RootElement.EnumerateObject().Any())
                         throw new RelayFailure("invalid_payload");

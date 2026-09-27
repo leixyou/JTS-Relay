@@ -60,7 +60,7 @@ conservative pilot configuration, not a paid tier or throughput guarantee; an
 operator can adjust them for their own server budget. Nothing calls an official
 admission, licensing, telemetry or update service.
 
-See [operations](docs/OPERATIONS.md), [protocol](protocol/v1/PROTOCOL.md),
+See [operations](docs/OPERATIONS.md), [security V2 protocol](protocol/security-v2/PROTOCOL.md),
 [security](SECURITY.md), and [release gates](docs/RELEASE_GATES.md).
 
 JTS source is licensed under Apache-2.0; see [LICENSE](LICENSE) and [CONTRIBUTING.md](CONTRIBUTING.md)

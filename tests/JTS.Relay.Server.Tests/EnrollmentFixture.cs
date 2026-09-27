@@ -23,7 +23,7 @@ internal sealed class EnrollmentFixture : IDisposable
     public EnrollmentService Service { get; private set; } = null!;
     public EnrollmentFixture(Action<RelayOptions>? configure = null)
     {
-        Options = new() { DatabasePath = Path.Combine(directory, "relay.sqlite"),
+        Options = new() { PublicOrigin = TestIdentity.Origin, DatabasePath = Path.Combine(directory, "relay.sqlite"),
             Devices = [Controller.Options("controller"), OtherController.Options("controller")] };
         configure?.Invoke(Options); Reopen();
     }
@@ -57,8 +57,13 @@ internal sealed class EnrollmentFixture : IDisposable
     public EnrollmentView Bind((EnrollmentView View, string Token, object Request) invite, TestIdentity? controller = null)
     {
         var claim = Public(Claim(invite.View, invite.Token, Companion), true);
-        return (EnrollmentView)Execute(new { action = "confirm", invitationId = invite.View.InvitationId, claimHash = claim.Claim!.ClaimHash }, controller);
+        return (EnrollmentView)Execute(ConfirmationRequest(claim, controller), controller);
     }
+    public object ConfirmationRequest(EnrollmentView claim, TestIdentity? controller = null) => new
+    {
+        action = "confirm", invitationId = claim.InvitationId, claimHash = claim.Claim!.ClaimHash,
+        confirmation = claim.Confirmation ?? (controller ?? Controller).Confirm(claim, Clock.Now.ToUnixTimeSeconds())
+    };
     public void Dispose()
     {
         Sessions.Dispose(); Store.Dispose(); Controller.Dispose(); OtherController.Dispose(); Companion.Dispose();

@@ -10,5 +10,6 @@
     <ProjectReference Include="../../src/JTS.Relay.Server/JTS.Relay.Server.csproj" />
     <Content Include="../../protocol/v1/fixtures/auth-presence.json" Link="Fixtures/auth-presence.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../protocol/enrollment-v1/fixtures/enrollment.json" Link="Fixtures/enrollment.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../protocol/security-v2/fixtures/*.json" Link="Fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

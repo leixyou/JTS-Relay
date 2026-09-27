@@ -36,6 +36,7 @@ public sealed class HttpsEndpointTests
             if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(keyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
             var options = new RelayOptions
             {
+                PublicOrigin = TestIdentity.Origin,
                 DatabasePath = Path.Combine(directory, "relay.sqlite"),
                 AllowLoopbackHttp = false, Devices = [identity.Options("controller")]
             };

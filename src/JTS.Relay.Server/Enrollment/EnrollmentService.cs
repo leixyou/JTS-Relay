@@ -19,7 +19,7 @@ public sealed class EnrollmentService(AdmissionStore store, DeviceRegistry regis
             {
                 case "create": return store.Create(controller, request);
                 case "status": case "confirm": case "cancel":
-                    return store.Owned(controller, request.InvitationId!, request.Action, request.ClaimHash);
+                    return store.Owned(controller, request.InvitationId!, request.Action, request.ClaimHash, request.Confirmation);
                 case "revoke":
                     // Persist removal first, then close every affected ticket/socket before reporting completion.
                     // The shared lock excludes concurrent session creation and ticket claims.

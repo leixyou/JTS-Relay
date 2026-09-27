@@ -8,6 +8,14 @@
   invalidates all live challenges, sessions and tickets. Admission is durable;
   the signed enrollment revoke action immediately closes the caller's peer lanes.
   Initial static configuration is seeded once and cannot resurrect a revoked pair.
+- Authentication V2 binds signatures to the configured public relay origin.
+  Anonymous challenge issuance and failed proofs cannot charge a device's
+  authenticated quota or burn another client's challenge. Replay storage remains
+  bounded. Old Auth V1 proofs are rejected without downgrade fallback.
+- Enrollment admission persists the Mac's independently verifiable confirmation
+  signature. Endpoint authorization must not rely on unsigned node receipts.
+  The durable signed revocation mailbox stays pending until Windows returns a
+  pinned-key completion signature; suppressed delivery cannot count as completion.
 - Normal deployments require HTTPS. Explicit HTTP development mode is limited
   to loopback clients and must not be exposed through an unauthenticated proxy.
 - Outer HTTPS ends at the relay. Inner mutually authenticated TLS ends only at

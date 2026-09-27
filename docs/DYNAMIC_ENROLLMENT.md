@@ -2,8 +2,10 @@
 
 This development preview accepts one-use enrollment without changing the running
 node's configuration or restarting it for each Windows device. See the additive
-[wire contract](../protocol/enrollment-v1/PROTOCOL.md). Existing signed relay v1
-operations and opaque control/file/RDP streams retain their protocol.
+[security v2 contract](../protocol/security-v2/PROTOCOL.md), which extends the
+immutable enrollment v1 format. Authentication now requires V2 audience-bound
+signatures and the operator's `Relay.PublicOrigin`; there is no V1 fallback.
+Opaque control/file/RDP forwarding retains its protocol.
 
 ## Initial Mac admission
 
@@ -28,9 +30,10 @@ is allowed; the node then denies signed client operations until local admission.
 
 An admitted Mac creates and retains a single high-entropy invitation link. Windows
 receives the link and exchanges encrypted enrollment material through the node.
-Only the Mac that created the invitation can confirm its exact Windows claim.
-The node then commits reciprocal admission and the bound receipt in one SQLite
-transaction. The endpoints retain authority over their own pins and lane grants.
+Only the Mac that created the invitation can sign confirmation of its exact
+Windows claim. The node commits that signature and reciprocal admission together.
+Windows independently verifies the pinned Mac signature before creating grants;
+an unsigned node assertion that the invitation is bound is insufficient.
 
 Windows claiming a link alone does not enable relay access. A changed claimant,
 ciphertext, or signature cannot replace the first claim. Retrying the exact saved
@@ -47,12 +50,15 @@ IP headers are not trusted. Responses use `Cache-Control: no-store`.
 
 ## Revocation and persistence
 
-The signed `enrollment` operation's `revoke` action removes only that controller's
-relationship with the specified peer, cancels its matching enrollment records,
-invalidates pending tickets, and closes active lanes before acknowledging success.
-Other controllers' relationships remain valid. Endpoint grants have their own
-revocation and accepted-task semantics; removing a route does not roll back a
-previously completed Windows action.
+The signed `revocations` mailbox persists the controller's request and removes
+only its relationship with the named peer, invalidates pending tickets, and
+closes active lanes. The state stays pending until Windows verifies the request,
+durably revokes the exact named grant epoch, drains its jobs and signs a receipt.
+The companion remains admitted to poll that mailbox. A new binding is blocked
+while that edge has pending revocations. Other controllers remain unaffected.
+Exact retries survive restarts without cutting a newer completed binding.
+The older enrollment `revoke` action is node-only and does not prove endpoint
+revocation. Previously completed Windows actions cannot be rolled back.
 
 On first startup, `Relay.Devices` is validated and seeded into durable tables in
 the existing SQLite database. A transaction records that migration exactly once.
@@ -69,6 +75,16 @@ are `MaxEnrollmentInvitations`, `MaxEnrollmentInvitationsPerController`,
 `MaxStoredEnrollments`, and `MaxPublicEnrollmentRequestsPerMinute`. Expired/cancelled
 records become eligible for cleanup after `SecurityRetentionDays`; bound records
 are retained for recovery and never evicted merely to admit another invitation.
+Mailbox records are separately capped by `MaxStoredEnrollments`, with at most
+128 pending requests per companion. Poll replies contain at most 32 records and
+64 KiB. Pending revocations never expire or get evicted to make space.
+
+Anonymous challenge issuance uses a source-IP quota, independently of verified
+device requests. Challenges do not reserve per-device slots. Only successful
+proofs enter bounded replay state (`MaxChallenges`) or consume device quotas;
+`MaxChallengesPerDevice` is a retained legacy configuration field with no effect
+on the stateless V2 challenge issuer. Rejected per-IP enrollment requests do not
+consume global enrollment quota.
 
 Changing server TLS, listeners, or resource limits remains a deployment operation.
 Source tests establish protocol and transaction behavior, not a completed Windows

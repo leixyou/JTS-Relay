@@ -29,7 +29,8 @@ public sealed class EnrollmentHttpTests
         claimResponse.EnsureSuccessStatusCode(); var claimed = (await claimResponse.Content.ReadFromJsonAsync<EnrollmentView>())!;
         using var before = await f.Http.PostAsJsonAsync("/v1/challenges", new ChallengeRequest(windows.Id, "presence"));
         Assert.Equal(HttpStatusCode.Unauthorized, before.StatusCode);
-        using var confirm = await f.AuthorizedAsync(f.Controller, "enrollment", new { action = "confirm", invitationId = id, claimHash = claimed.Claim!.ClaimHash });
+        using var confirm = await f.AuthorizedAsync(f.Controller, "enrollment", new { action = "confirm", invitationId = id,
+            claimHash = claimed.Claim!.ClaimHash, confirmation = f.Controller.Confirm(claimed, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), f.Origin) });
         confirm.EnsureSuccessStatusCode();
         using var admitted = await f.AuthorizedAsync(windows, "presence", new { }); admitted.EnsureSuccessStatusCode();
         // Simulate connection loss after creating a lane. Enrollment is not a connectivity probe.

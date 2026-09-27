@@ -30,7 +30,10 @@ public sealed partial class AdmissionStore : IDisposable
                 "token_hash TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('pending','claimed','bound','cancelled','expired'))," +
                 "expires INTEGER NOT NULL,offer TEXT NOT NULL,peer_spki TEXT,response TEXT,signature TEXT,claim_hash TEXT,peer_id TEXT,updated INTEGER NOT NULL); " +
                 "CREATE INDEX IF NOT EXISTS admission_invitation_owner ON admission_invitations(controller,state); " +
-                "CREATE INDEX IF NOT EXISTS admission_invitation_peer ON admission_invitations(controller,peer_id);");
+                "CREATE INDEX IF NOT EXISTS admission_invitation_peer ON admission_invitations(controller,peer_id); " +
+                "CREATE TABLE IF NOT EXISTS admission_confirmations(invitation TEXT PRIMARY KEY REFERENCES admission_invitations(id) ON DELETE CASCADE,document TEXT NOT NULL); " +
+                "CREATE TABLE IF NOT EXISTS admission_revocations(id TEXT PRIMARY KEY,controller TEXT NOT NULL REFERENCES admission_devices(id),peer TEXT NOT NULL REFERENCES admission_devices(id),request TEXT NOT NULL,controller_spki TEXT NOT NULL,receipt TEXT); " +
+                "CREATE INDEX IF NOT EXISTS admission_revocation_peer ON admission_revocations(peer,receipt);");
             using var transaction = connection.BeginTransaction();
             if (Scalar(transaction, "SELECT value FROM admission_meta WHERE name='static_seed_v1'") is null)
             {
@@ -97,6 +100,8 @@ public sealed partial class AdmissionStore : IDisposable
     }
     private void AddPair(SqliteTransaction transaction, string controller, AdmittedDevice companion)
     {
+        if (Scalar(transaction, "SELECT 1 FROM admission_revocations WHERE controller=$controller AND peer=$peer AND receipt IS NULL LIMIT 1",
+            ("$controller", controller), ("$peer", companion.Id)) is not null) throw new RelayFailure("revocation_pending", 409);
         AddDevice(transaction, companion);
         var existing = Scalar(transaction, "SELECT 1 FROM admission_peers WHERE controller=$controller AND companion=$peer", ("$controller", controller), ("$peer", companion.Id));
         if (existing is not null) return;

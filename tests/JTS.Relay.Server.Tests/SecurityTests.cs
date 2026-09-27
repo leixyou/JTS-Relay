@@ -11,7 +11,7 @@ public sealed class SecurityTests
     public void ProofIsSingleUseAndBoundToOperation()
     {
         using var identity = new TestIdentity();
-        var options = new RelayOptions { Devices = [identity.Options("controller")] };
+        var options = new RelayOptions { PublicOrigin = TestIdentity.Origin, Devices = [identity.Options("controller")] };
         var auth = new ChallengeAuthenticator(options, new(options), new TestClock());
         var challenge = auth.Issue(new(identity.Id, "presence"));
         var proof = identity.Sign("presence", challenge, new { });
@@ -22,19 +22,19 @@ public sealed class SecurityTests
         var other = auth.Issue(new(identity.Id, "presence"));
         var invalid = identity.Sign("presence", other, new { });
         Assert.Throws<RelayFailure>(() => auth.Authenticate("devices", invalid));
-        Assert.Throws<RelayFailure>(() => auth.Authenticate("presence", invalid));
+        auth.Authenticate("presence", invalid).Payload.Dispose();
     }
     [Fact]
-    public void InvalidSignatureBurnsChallengeAndExpiredProofFails()
+    public void InvalidSignatureCannotBurnAnotherClientsChallengeAndExpiredProofFails()
     {
         using var identity = new TestIdentity();
-        var options = new RelayOptions { Devices = [identity.Options("controller")] };
+        var options = new RelayOptions { PublicOrigin = TestIdentity.Origin, Devices = [identity.Options("controller")] };
         var clock = new TestClock();
         var auth = new ChallengeAuthenticator(options, new(options), clock);
         var challenge = auth.Issue(new(identity.Id, "presence"));
         var proof = identity.Sign("presence", challenge, new { });
         Assert.Throws<RelayFailure>(() => auth.Authenticate("presence", proof with { SignatureBase64 = Convert.ToBase64String(new byte[64]) }));
-        Assert.Throws<RelayFailure>(() => auth.Authenticate("presence", proof));
+        auth.Authenticate("presence", proof).Payload.Dispose();
         challenge = auth.Issue(new(identity.Id, "presence"));
         clock.Now = clock.Now.AddSeconds(61);
         Assert.Throws<RelayFailure>(() => auth.Authenticate("presence", identity.Sign("presence", challenge, new { })));
@@ -53,15 +53,48 @@ public sealed class SecurityTests
         }));
     }
     [Fact]
-    public void ChallengeCapacityIsBoundedAndCleaned()
+    public void AnonymousIssuanceCannotReserveVictimCapacityOrPoisonAuthenticatedRate()
     {
         using var identity = new TestIdentity();
-        var options = new RelayOptions { MaxChallengesPerDevice = 1, Devices = [identity.Options("controller")] };
+        var options = new RelayOptions { PublicOrigin = TestIdentity.Origin, MaxChallenges = 1, MaxRequestsPerMinute = 2, Devices = [identity.Options("controller")] };
         var clock = new TestClock();
         var auth = new ChallengeAuthenticator(options, new(options), clock);
-        auth.Issue(new(identity.Id, "presence"));
-        Assert.Equal(429, Assert.Throws<RelayFailure>(() => auth.Issue(new(identity.Id, "presence"))).Status);
+        var victim = auth.Issue(new(identity.Id, "presence"), "owner");
+        for (var i = 0; i < 100; i++)
+        {
+            try { auth.Issue(new(identity.Id, "presence"), "attacker"); } catch (RelayFailure e) { Assert.Equal(429, e.Status); }
+            try { auth.Authenticate("presence", identity.Sign("presence", victim, new { }) with { SignatureBase64 = Convert.ToBase64String(new byte[64]) }, "attacker"); }
+            catch (RelayFailure e) { Assert.Contains(e.Status, new[] { 401, 429 }); }
+        }
+        auth.Authenticate("presence", identity.Sign("presence", victim, new { }), "owner").Payload.Dispose();
+        var another = auth.Issue(new(identity.Id, "presence"), "owner");
+        Assert.Equal("capacity_exhausted", Assert.Throws<RelayFailure>(() => auth.Authenticate("presence", identity.Sign("presence", another, new { }), "owner")).Code);
         clock.Now = clock.Now.AddSeconds(61);
-        Assert.NotNull(auth.Issue(new(identity.Id, "presence")));
+        var fresh = auth.Issue(new(identity.Id, "presence"), "owner");
+        auth.Authenticate("presence", identity.Sign("presence", fresh, new { }), "owner").Payload.Dispose();
+    }
+
+    [Fact]
+    public async Task AudienceTamperingRestartAndConcurrentReplayFailClosed()
+    {
+        using var identity = new TestIdentity();
+        var options = new RelayOptions { PublicOrigin = TestIdentity.Origin, Devices = [identity.Options("controller")] };
+        var clock = new TestClock(); var registry = new DeviceRegistry(options);
+        var auth = new ChallengeAuthenticator(options, registry, clock);
+        var challenge = auth.Issue(new(identity.Id, "presence"));
+        var wrongAudience = identity.Sign("presence", challenge, new { }, "https://attacker.example");
+        Assert.Throws<RelayFailure>(() => auth.Authenticate("presence", wrongAudience));
+        var proof = identity.Sign("presence", challenge, new { });
+        var legacy = string.Join('\n', "JTS-RELAY-AUTH-V1", identity.Id, "presence", challenge.ChallengeId,
+            challenge.NonceBase64, Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Convert.FromBase64String(proof.PayloadBase64))));
+        Assert.Throws<RelayFailure>(() => auth.Authenticate("presence", proof with { SignatureBase64 = identity.SignText(legacy) }));
+        var restarted = new ChallengeAuthenticator(options, registry, clock);
+        Assert.Throws<RelayFailure>(() => restarted.Authenticate("presence", proof));
+        var successes = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() =>
+        {
+            try { auth.Authenticate("presence", proof).Payload.Dispose(); return true; }
+            catch (RelayFailure e) { Assert.Equal(401, e.Status); return false; }
+        })));
+        Assert.Single(successes, value => value);
     }
 }

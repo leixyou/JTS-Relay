@@ -35,6 +35,12 @@ Never deploy shared fixture identities or disable endpoint key verification.
 Copy `config/relay.example.json` from a source checkout, or
 `deploy/relay.example.json` from an extracted binary archive, to your protected
 deployment directory as `relay.json`. Populate
+`Relay.PublicOrigin` with the exact externally used origin, for example
+`https://relay.example.com:8443`. Scheme/hostname are canonicalized to lowercase,
+default ports and the trailing slash are omitted. This is the signed audience;
+aliases require clients to use the configured origin. Upgrade both endpoints to
+security V2 before switching this server: V1 authentication fails closed.
+Populate
 `Relay.Devices` using the public identities exported by your endpoints:
 
 ```json

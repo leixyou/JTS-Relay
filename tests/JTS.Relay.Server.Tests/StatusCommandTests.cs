@@ -41,6 +41,7 @@ public sealed class StatusCommandTests
             using var identity = new TestIdentity();
             var options = new RelayOptions
             {
+                PublicOrigin = TestIdentity.Origin,
                 DatabasePath = Path.Combine(directory, "relay.sqlite"),
                 MonthlyOutboundBytes = 100, ControlReserveBytes = 10,
                 Devices = [identity.Options("controller")]

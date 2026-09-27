@@ -24,3 +24,8 @@ if find src -name '*.cs' -exec grep -En 'JTS\.WindowsCompanion|DllImport.*(wtsap
   exit 1
 fi
 echo 'Independent relay source boundary: PASS'
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd protocol/security-v2 && sha256sum -c SHA256SUMS)
+else
+  (cd protocol/security-v2 && shasum -a 256 -c SHA256SUMS)
+fi
