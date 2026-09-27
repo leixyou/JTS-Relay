@@ -66,6 +66,16 @@ class AdmissionValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(AdmissionError, "duplicate_json_property"):
             decode(b'{"Relay": {}, "Relay": {}}')
 
+    def test_tls12_enrollment_flag_requires_an_actual_boolean(self):
+        for role, original, prefix in (("controller", self.controller, "controller"), ("companion", self.companion, "peer")):
+            for flag in (False, True):
+                value = {prefix + "DeviceID": original["DeviceId"], prefix + "SPKIBase64": original["PublicKeySpkiBase64"], "allowWindows10TLS12": flag}
+                self.assertEqual(public_input(encode(value), role, True), original)
+            for invalid in (0, 1, "true", None, [], {}):
+                value["allowWindows10TLS12"] = invalid
+                with self.assertRaisesRegex(AdmissionError, "invalid_tls_compatibility_flag"):
+                    public_input(encode(value), role, True)
+
     def test_merge_is_idempotent_preserves_case_and_other_configuration(self):
         config = configuration()
         merged = merge(config, self.controller, self.companion)

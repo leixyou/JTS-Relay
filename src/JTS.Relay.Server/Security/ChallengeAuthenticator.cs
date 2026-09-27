@@ -12,7 +12,7 @@ public sealed class ChallengeAuthenticator(RelayOptions options, DeviceRegistry 
     private readonly object gate = new();
     private readonly Dictionary<string, Challenge> challenges = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (long Minute, int Count)> rates = new(StringComparer.Ordinal);
-    private static readonly HashSet<string> Operations = ["presence", "devices", "sessions", "poll"];
+    private static readonly HashSet<string> Operations = ["presence", "devices", "sessions", "poll", "enrollment"];
 
     public ChallengeResponse Issue(ChallengeRequest request)
     {
@@ -66,7 +66,9 @@ public sealed class ChallengeAuthenticator(RelayOptions options, DeviceRegistry 
                 document.Dispose();
                 throw new FormatException();
             }
-            return (device, document);
+            if (!registry.TryGet(device.Id, out var current) || !current.Spki.AsSpan().SequenceEqual(device.Spki))
+            { document.Dispose(); throw new RelayFailure("authentication_failed", 401); }
+            return (current, document);
         }
         catch (Exception e) when (e is FormatException or CryptographicException or JsonException)
         {

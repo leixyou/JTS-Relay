@@ -1,11 +1,13 @@
 # Security boundary
 
-- Node admission requires operator-configured P-256 public keys and reciprocal
-  peer permission. Identity is SHA-256 of DER SPKI. Node admission never grants
+- Node admission requires an operator-admitted controller, authenticated one-use
+  enrollment (or initial configured public keys), and reciprocal peer permission.
+  Identity is SHA-256 of DER SPKI. Node admission never grants
   Windows command, file, desktop or MCP permission.
 - Challenges and role-specific tickets are short-lived and single-use. Restart
-  invalidates all live challenges, sessions and tickets. Alpha configuration is
-  loaded on startup; revoke node admission by editing config and restarting.
+  invalidates all live challenges, sessions and tickets. Admission is durable;
+  the signed enrollment revoke action immediately closes the caller's peer lanes.
+  Initial static configuration is seeded once and cannot resurrect a revoked pair.
 - Normal deployments require HTTPS. Explicit HTTP development mode is limited
   to loopback clients and must not be exposed through an unauthenticated proxy.
 - Outer HTTPS ends at the relay. Inner mutually authenticated TLS ends only at
@@ -18,13 +20,16 @@
 - A tunnel carries one bound control/file/RDP lane. There is no hostname/port
   request, CONNECT proxy, shell, plugin loader or Windows broker in this server.
 - Request, body, token, exception-detail and payload logging are disabled.
-  SQLite contains only minimal presence/usage metadata, not encrypted stream
-  content. Protect it and node configuration with owner-only permissions.
+  SQLite contains presence/usage, public admission records, token hashes and
+  bounded opaque enrollment ciphertext; no forwarded stream payload is stored.
+  Protect it and node configuration with owner-only permissions.
 - Budget enforcement is application metering, not a cloud-provider billing
   guarantee: TLS/HTTP overhead and attacks still consume bandwidth. Use provider
   spending limits, edge protection and alerts before public admission.
-- Keep administrative access outside the relay protocol. Use OS access controls
-  to update node configuration; no unauthenticated admin HTTP endpoint exists.
+- Node administration and first-controller admission require local OS authority.
+  Existing controllers may invite/revoke their own peers using signed operations;
+  no unauthenticated admin or controller-registration HTTP endpoint exists.
+  See [dynamic enrollment](docs/DYNAMIC_ENROLLMENT.md) for migration and recovery.
 
 Do not send keys, ticket values, packet captures or user content in bug reports.
 Report only a sanitized error code, version, time window and reproduction using

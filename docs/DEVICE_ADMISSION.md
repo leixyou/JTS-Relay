@@ -1,5 +1,9 @@
 # Admit a public device pair
 
+This is the legacy initial-seed workflow. Once the dynamic registry has been
+initialized, editing this JSON does not change admission, even after restart.
+Use [one-use enrollment](DYNAMIC_ENROLLMENT.md) for new devices and revocation.
+
 `scripts/admit-device-pair.py` is a local operator tool for an already authorized
 relay node. It changes only the reciprocal public admission records in the relay
 JSON. It does not contact endpoints, read a TLS private-key file, change the relay
@@ -73,10 +77,9 @@ before writing the manifest, reapply recovers the manifest only when the exact
 candidate and preserved metadata are present; it does not republish or replay
 endpoint work.
 
-The running relay loads configuration only at process start. Apply therefore
-means **configuration published**, not **new pair usable**. Schedule the already
-authorized service restart separately, after active acceptance traffic completes,
-then verify the new pair's signed admission and the actual endpoint operation.
+Apply means **initial configuration published**, not **new pair usable**. The first
+startup imports this seed atomically. After that migration, use dynamic enrollment;
+restarting or editing this file will not alter the durable admission registry.
 Never restart automatically from this tool or infer Windows readiness from it.
 
 ## Rollback

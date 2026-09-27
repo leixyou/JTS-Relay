@@ -18,6 +18,7 @@ cp deploy/jts-relay.service deploy/compose.yaml deploy/Dockerfile.package "$rela
 cp README.md SECURITY.md NOTICE.md LICENSE "$relay_output/"
 cp docs/*.md "$relay_output/docs/"
 cp -R protocol/v1 "$relay_output/protocol/"
+cp -R protocol/enrollment-v1 "$relay_output/protocol/"
 cp -R third-party "$relay_output/third-party"
 cp global.json Directory.Build.props "$relay_output/"
 tar -czf "$relay_output.tar.gz" -C "$relay_root/artifacts" "$(basename "$relay_output")"

@@ -47,7 +47,10 @@ deployment directory as `relay.json`. Populate
 These are placeholders, not usable keys. Never admit the public fixtures from
 the protocol tests. Pair the endpoints independently and grant only necessary
 capabilities there; admission to your node cannot substitute for that consent.
-There is no default account, password, cloud enrollment or license key.
+There is no default account, password or license key. Static public records seed
+the durable registry only on its first startup. After that, use
+[one-use enrollment](DYNAMIC_ENROLLMENT.md) and the local first-controller command
+to add devices without editing JSON or restarting the service.
 
 ## Container
 

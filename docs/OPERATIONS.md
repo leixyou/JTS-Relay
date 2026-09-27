@@ -112,14 +112,13 @@ in effect. The provider limit remains necessary even with a consistent database.
 
 ## Revoke and uninstall
 
-For additive admission of a controller/Companion pair, use the bounded
-[public-device admission workflow](DEVICE_ADMISSION.md). It prepares a private
-candidate and backup by default, requires an explicit apply operation, and never
-restarts the service itself.
-
-Remove the device and reciprocal peer entries, then restart to close its active
-node sessions. Endpoint grants require their own revocation; an offline endpoint
-may retain an explicitly accepted task until its deadline.
+Use [dynamic one-use enrollment](DYNAMIC_ENROLLMENT.md) to add peers without a
+restart. The signed enrollment revoke action removes the caller's peer edge,
+cancels associated invitations and closes its active node sessions immediately.
+The legacy [JSON admission tool](DEVICE_ADMISSION.md) prepares only initial seed
+configuration; after migration, config edits cannot change the durable registry.
+Endpoint grants require their own revocation; an offline endpoint may retain an
+explicitly accepted task until its deadline.
 
 To uninstall, first stop/disable the unit or run `docker compose down` WITHOUT
 `--volumes`. Preserve data/config by default. Remove only the exact installed

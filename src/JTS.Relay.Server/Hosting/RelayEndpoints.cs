@@ -5,6 +5,7 @@ using JTS.Relay.Server.Forwarding;
 using JTS.Relay.Server.Protocol;
 using JTS.Relay.Server.Security;
 using JTS.Relay.Server.Storage;
+using JTS.Relay.Server.Enrollment;
 
 namespace JTS.Relay.Server.Hosting;
 
@@ -41,13 +42,18 @@ public static class RelayEndpoints
         app.MapGet("/v1/info", () => Results.Json(new { protocolVersion = 1, lanes = new[] { "control", "file", "rdp" } }));
         app.MapPost("/v1/challenges", async (HttpContext context, ChallengeAuthenticator auth) =>
             Results.Json(auth.Issue(await Read<ChallengeRequest>(context))));
-        foreach (var operation in new[] { "presence", "devices", "sessions", "poll" })
+        foreach (var operation in new[] { "presence", "devices", "sessions", "poll", "enrollment" })
             app.MapPost("/v1/" + operation, async (HttpContext context, ChallengeAuthenticator auth,
-                SessionCoordinator sessions, RelayStore store) =>
+                SessionCoordinator sessions, RelayStore store, EnrollmentService enrollment) =>
             {
                 var (device, document) = auth.Authenticate(operation, await Read<AuthEnvelope>(context));
                 using (document)
                 {
+                    if (operation == "enrollment")
+                    {
+                        context.Response.Headers.CacheControl = "no-store";
+                        return Results.Json(enrollment.Execute(device.Id, document.RootElement));
+                    }
                     if (operation != "sessions" && document.RootElement.EnumerateObject().Any())
                         throw new RelayFailure("invalid_payload");
                     return operation switch
@@ -61,6 +67,7 @@ public static class RelayEndpoints
                 }
             });
         app.MapGet("/v1/channel", Channel);
+        app.MapEnrollment();
     }
     private static IResult Presence(AdmittedDevice device, RelayStore store)
     {

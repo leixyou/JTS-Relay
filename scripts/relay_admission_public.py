@@ -86,7 +86,7 @@ def public_input(raw, role, is_json):
         if "controllerSPKIBase64" in value:
             require(role == "controller", "public_role_mismatch")
             require(set(value) <= {"version", "authorizationSource", "authorizationReference", "controllerDeviceID",
-                    "controllerSPKIBase64", "pairingID", "grantID", "fileGrantID", "rdpGrantID", "issuedAtUtc", "expiresAtUtc"},
+                    "controllerSPKIBase64", "pairingID", "grantID", "fileGrantID", "rdpGrantID", "issuedAtUtc", "expiresAtUtc", "allowWindows10TLS12"},
                     "unsupported_public_identity_field")
             encoded, identity = value.get("controllerSPKIBase64"), value.get("controllerDeviceID")
         elif "peerSPKIBase64" in value:
@@ -99,6 +99,8 @@ def public_input(raw, role, is_json):
             require({key.casefold() for key in value} <= {"deviceid", "publickeyspkibase64", "role", "peers"},
                     "unsupported_public_identity_field")
             encoded, identity = field(value, "PublicKeySpkiBase64"), field(value, "DeviceId")
+        if "allowWindows10TLS12" in value:
+            require(type(value["allowWindows10TLS12"]) is bool, "invalid_tls_compatibility_flag")
         require(isinstance(identity, str), "public_device_id_required")
         record = public_key(encoded, identity)
     record.update(Role=role, Peers=[])

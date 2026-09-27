@@ -15,10 +15,11 @@ public sealed class SessionCoordinator(RelayOptions options, DeviceRegistry regi
 
     public SessionResponse Create(AdmittedDevice controller, SessionRequest request)
     {
+        lock (registry.SyncRoot)
         lock (gate)
         {
             CleanupLocked();
-            if (controller.Role != "controller" || !registry.TryGet(request.PeerDeviceId, out var peer) ||
+            if (!registry.TryGet(controller.Id, out controller!) || controller.Role != "controller" || !registry.TryGet(request.PeerDeviceId, out var peer) ||
                 peer.Role != "companion" || !controller.Peers.Contains(peer.Id) || !peer.Peers.Contains(controller.Id))
                 throw new RelayFailure("peer_not_authorized", 403);
             if (request.Lane is not ("control" or "file" or "rdp")) throw new RelayFailure("unsupported_lane");
@@ -42,22 +43,34 @@ public sealed class SessionCoordinator(RelayOptions options, DeviceRegistry regi
     }
     public SessionOffer[] Poll(AdmittedDevice companion)
     {
-        if (companion.Role != "companion") throw new RelayFailure("role_not_authorized", 403);
+        lock (registry.SyncRoot)
         lock (gate)
         {
+            if (!registry.TryGet(companion.Id, out companion!) || companion.Role != "companion") throw new RelayFailure("role_not_authorized", 403);
             CleanupLocked();
-            return sessions.Values.Where(s => s.IsOfferedTo(companion.Id)).Select(s =>
+            return sessions.Values.Where(s => s.IsOfferedTo(companion.Id) && registry.AuthorizesPair(s.ControllerId, s.CompanionId)).Select(s =>
                 new SessionOffer(s.Id, s.Lane, s.ControllerId, s.CompanionTicket, s.Expires.ToUnixTimeSeconds())).ToArray();
         }
     }
     public (RelaySession Session, bool Controller) Claim(string ticket)
     {
+        lock (registry.SyncRoot)
         lock (gate)
         {
             CleanupLocked();
             foreach (var session in sessions.Values)
-                if (session.TryClaim(ticket, clock.GetUtcNow(), out var controller)) return (session, controller);
+                if (registry.AuthorizesPair(session.ControllerId, session.CompanionId) &&
+                    session.TryClaim(ticket, clock.GetUtcNow(), out var controller)) return (session, controller);
             throw new RelayFailure("invalid_ticket", 401);
+        }
+    }
+    public void RevokePair(string controller, string companion)
+    {
+        lock (registry.SyncRoot)
+        lock (gate)
+        {
+            foreach (var pair in sessions.Where(s => s.Value.ControllerId == controller && s.Value.CompanionId == companion).ToArray())
+            { pair.Value.Stop(); sessions.Remove(pair.Key); }
         }
     }
     public void Cleanup() { lock (gate) CleanupLocked(); }

@@ -2,6 +2,7 @@ using JTS.Relay.Server.Configuration;
 using JTS.Relay.Server.Forwarding;
 using JTS.Relay.Server.Security;
 using JTS.Relay.Server.Storage;
+using JTS.Relay.Server.Enrollment;
 
 namespace JTS.Relay.Server.Hosting;
 
@@ -18,7 +19,7 @@ public static class RelayApplication
         ExternalConfiguration.AddTo(builder.Configuration, args);
         configure?.Invoke(builder);
         var options = ExternalConfiguration.ReadOptions(builder.Configuration);
-        var registry = new DeviceRegistry(options);
+        _ = new DeviceRegistry(options); // Fail before binding listeners for invalid legacy seed configuration.
         builder.WebHost.ConfigureKestrel(server =>
         {
             server.AddServerHeader = false;
@@ -30,14 +31,19 @@ public static class RelayApplication
             server.Limits.RequestHeadersTimeout = TimeSpan.FromSeconds(10);
         });
         builder.Services.AddSingleton(options);
-        builder.Services.AddSingleton(registry);
         builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services.AddSingleton<AdmissionStore>();
+        builder.Services.AddSingleton<DeviceRegistry>();
+        builder.Services.AddSingleton<EnrollmentService>();
+        builder.Services.AddSingleton<EnrollmentRateLimiter>();
         builder.Services.AddSingleton<ChallengeAuthenticator>();
         builder.Services.AddSingleton<RelayStore>();
         builder.Services.AddSingleton<SessionCoordinator>();
         builder.Services.AddHostedService<ExpiryService>();
         var app = builder.Build();
         app.MapRelay(options);
+        // Load/migrate the durable registry before the listener starts.
+        _ = app.Services.GetRequiredService<AdmissionStore>();
         return app;
     }
 }

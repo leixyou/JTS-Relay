@@ -21,11 +21,15 @@ public sealed class RelayOptions
     public int IdleTimeoutSeconds { get; set; } = 120;
     public int SecurityRetentionDays { get; set; } = 7;
     public int UsageRetentionDays { get; set; } = 30;
+    public int MaxEnrollmentInvitations { get; set; } = 256;
+    public int MaxEnrollmentInvitationsPerController { get; set; } = 8;
+    public int MaxStoredEnrollments { get; set; } = 4096;
+    public int MaxPublicEnrollmentRequestsPerMinute { get; set; } = 600;
     public List<DeviceOptions> Devices { get; set; } = [];
 
     public void Validate()
     {
-        if (!Path.IsPathFullyQualified(DatabasePath) || Devices.Count == 0 ||
+        if (!Path.IsPathFullyQualified(DatabasePath) ||
             MaxDevices is < 2 or > 10000 || MaxCompanionDevices < 1 ||
             MaxCompanionDevices > MaxDevices || Devices.Count > MaxDevices ||
             Devices.Count(d => d.Role == "companion") > MaxCompanionDevices ||
@@ -39,7 +43,10 @@ public sealed class RelayOptions
             MonthlyOutboundBytes < 1 || ControlReserveBytes < 0 ||
             ControlReserveBytes >= MonthlyOutboundBytes ||
             MaxSessionSeconds is < 1 or > 86400 || IdleTimeoutSeconds is < 1 or > 3600 ||
-            SecurityRetentionDays is < 1 or > 365 || UsageRetentionDays is < 1 or > 365)
+            SecurityRetentionDays is < 1 or > 365 || UsageRetentionDays is < 1 or > 365 ||
+            MaxEnrollmentInvitations is < 1 or > 10000 || MaxEnrollmentInvitationsPerController is < 1 or > 128 ||
+            MaxStoredEnrollments < MaxEnrollmentInvitations || MaxStoredEnrollments > 100000 ||
+            MaxPublicEnrollmentRequestsPerMinute is < 1 or > 10000)
             throw new InvalidOperationException("invalid_relay_configuration");
     }
 }
