@@ -1,0 +1,28 @@
+services:
+  relay:
+    image: jts-relay:1.0.0-alpha.1
+    restart: unless-stopped
+    ports:
+      - "${JTS_RELAY_BIND_ADDRESS:-127.0.0.1}:8443:8443"
+    volumes:
+      - ./relay.json:/etc/jts-relay/relay.json:ro
+      - ./tls.crt:/etc/jts-relay/tls.crt:ro
+      - ./tls.key:/etc/jts-relay/tls.key:ro
+      - relay-data:/var/lib/jts-relay
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
+    logging:
+      driver: local
+      options:
+        max-size: "5m"
+        max-file: "2"
+volumes:
+  relay-data:

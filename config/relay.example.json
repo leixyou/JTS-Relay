@@ -1,0 +1,32 @@
+{
+  "Kestrel": {
+    "Endpoints": {
+      "Https": {
+        "Url": "https://0.0.0.0:8443",
+        "Certificate": { "Path": "/etc/jts-relay/tls.crt", "KeyPath": "/etc/jts-relay/tls.key" }
+      }
+    }
+  },
+  "Relay": {
+    "DatabasePath": "/var/lib/jts-relay/relay.sqlite",
+    "AllowLoopbackHttp": false,
+    "MaxDevices": 64,
+    "MaxCompanionDevices": 10,
+    "MaxChallenges": 1024,
+    "MaxChallengesPerDevice": 8,
+    "MaxSessions": 64,
+    "MaxSessionsPerDevice": 8,
+    "MaxRdpSessions": 3,
+    "MaxRequestsPerMinute": 120,
+    "BulkBytesPerSecond": 2621440,
+    "ControlBytesPerSecond": 262144,
+    "SessionBytesPerSecond": 1048576,
+    "MonthlyOutboundBytes": 107374182400,
+    "ControlReserveBytes": 104857600,
+    "MaxSessionSeconds": 86400,
+    "IdleTimeoutSeconds": 120,
+    "SecurityRetentionDays": 7,
+    "UsageRetentionDays": 30,
+    "Devices": []
+  }
+}

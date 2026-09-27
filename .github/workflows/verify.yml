@@ -1,0 +1,27 @@
+name: Independent relay verification
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: bash scripts/verify.sh
+      - run: bash scripts/package.sh linux-x64
+      - run: sudo apt-get update && sudo apt-get install -y openssl curl jq sqlite3
+      - run: bash scripts/smoke-linux-package.sh artifacts/jts-relay-1.0.0-alpha.1-linux-x64.tar.gz
+      - run: docker build --file artifacts/jts-relay-1.0.0-alpha.1-linux-x64/deploy/Dockerfile.package --tag jts-relay:1.0.0-alpha.1 artifacts/jts-relay-1.0.0-alpha.1-linux-x64
+      - run: docker save --output artifacts/jts-relay-1.0.0-alpha.1-linux-x64-image.tar jts-relay:1.0.0-alpha.1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relay-linux-x64
+          path: |
+            artifacts/*.tar.gz
+            artifacts/*-image.tar
+            artifacts/tests/*.trx

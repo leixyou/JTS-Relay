@@ -1,0 +1,15 @@
+# Build from an extracted same-architecture self-contained release, not source.
+FROM debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates libicu76 libssl3t64 libstdc++6 libgcc-s1 zlib1g \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1654 jts-relay \
+    && useradd --uid 1654 --gid 1654 --no-create-home --shell /usr/sbin/nologin jts-relay \
+    && mkdir -p /var/lib/jts-relay \
+    && chown 1654:1654 /var/lib/jts-relay && chmod 0700 /var/lib/jts-relay
+WORKDIR /app
+COPY app/ /app/
+COPY third-party/ /usr/share/doc/jts-relay/third-party/
+USER 1654:1654
+EXPOSE 8443
+ENTRYPOINT ["/app/JTS.Relay.Server", "--config", "/etc/jts-relay/relay.json"]

@@ -1,0 +1,9 @@
+.git
+**/bin
+**/obj
+artifacts
+.env
+**/*.pem
+**/*.pfx
+**/*.key
+config/local*.json
